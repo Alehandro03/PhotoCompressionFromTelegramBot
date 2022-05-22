@@ -1,17 +1,11 @@
 ﻿using Telegram.Bot;
 using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Types;
-using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types.InputFiles;
-//using Aspose.Imaging;
-//using Aspose.Imaging.ImageOptions;
 using Telegram.Bot.Types.Enums;
-using Aspose.Imaging.FileFormats.Jpeg;
 using System.Drawing.Imaging;
 using System.Drawing;
-using System.Text;
-using System.Drawing.Imaging;
-using System.IO;
+
 
 namespace PhotoCompressionFromTelegramBot
 {
@@ -41,36 +35,32 @@ namespace PhotoCompressionFromTelegramBot
                     var fileId = message.Photo.Last().FileId;
                     var fileInfo = await botClient.GetFileAsync(fileId);
                     var filePath = fileInfo.FilePath;
-                    double firstSize = Convert.ToDouble(message.Photo[message.Photo.Length - 1].FileSize);
-                    Console.WriteLine(firstSize);
+
+                    double firstSize = Convert.ToDouble(message.Photo.Last().FileSize);
+                    //Console.WriteLine(firstSize);
 
                     double secondSize = 0;
                     var dataDir = @"C:\Users\azaro\Desktop\photo.png";
 
-                    //string destinationFilePath = $"../downloaded.file";
-                    await using FileStream fileStream = System.IO.File.OpenWrite(dataDir);
-                    await botClient.DownloadFileAsync(
-                        filePath: filePath,
-                        destination: fileStream);
-                    fileStream.Close();
+                    using (FileStream fileStream = System.IO.File.OpenWrite(dataDir))
+                    {
+                        await botClient.DownloadFileAsync(
+                            filePath: filePath,
+                            destination: fileStream);
+                    }
 
-                    //using (Image image = Image.Load(dataDir))
-                    //{
-                    //    JpegOptions options = new JpegOptions();
-                    //    options.CompressionType = JpegCompressionMode.Progressive;
-                    //    image.Save(@"C:\Users\azaro\Desktop\photo_out.jpg", options);
-                    //}
-
-
-                    Image image = compressImage(dataDir, message.Photo.Last().Width, message.Photo.Last().Height, 70);
+                    Image image = compressImage(dataDir, 0);
                     image.Save(@"C:\Users\azaro\Desktop\photo_out.png");
 
 
-                    using (var file = new FileStream(@"C:\Users\azaro\Desktop\photo_out.png", FileMode.Open, FileAccess.Read, FileShare.Read))
+                    using (var file = new FileStream(@"C:\Users\azaro\Desktop\photo_out.png",
+                        FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         secondSize = file.Length;
+
                         Console.WriteLine(secondSize);
                         string size = Convert.ToString(100 - ((secondSize / firstSize) * 100));
+
                         await bot.SendPhotoAsync(
                             chatId: message.Chat.Id,
                             photo: new InputOnlineFile(file),
@@ -91,22 +81,15 @@ namespace PhotoCompressionFromTelegramBot
                     double secondSize = 0;
                     var dataDir = @"C:\Users\azaro\Desktop\photo.png";
 
-                    //string destinationFilePath = $"../downloaded.file";
-                    await using FileStream fileStream = System.IO.File.OpenWrite(dataDir);
-                    await botClient.DownloadFileAsync(
-                        filePath: filePath,
-                        destination: fileStream);
-                    fileStream.Close();
-
-                    //using (Image image = Image.Load(dataDir))
-                    //{
-                    //    JpegOptions options = new JpegOptions();
-                    //    options.CompressionType = JpegCompressionMode.Progressive;
-                    //    image.Save(@"C:\Users\azaro\Desktop\photo_out.jpg", options);
-                    //}
+                    using (FileStream fileStream = System.IO.File.OpenWrite(dataDir))
+                    {
+                        await botClient.DownloadFileAsync(
+                            filePath: filePath,
+                            destination: fileStream);
+                    }
 
 
-                    Image image = compressImage(dataDir, 100, 100, 70);
+                    Image image = compressImage(dataDir, 70);
                     image.Save(@"C:\Users\azaro\Desktop\photo_out.png");
 
 
@@ -127,12 +110,10 @@ namespace PhotoCompressionFromTelegramBot
 
         public static async Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
         {
-            // Некоторые действия
             Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(exception));
         }
 
-        private static Image compressImage(string fileName, int newWidth, int newHeight,
-                            int newQuality)   // set quality to 1-100, eg 50
+        private static Image compressImage(string fileName, int newQuality)
         {
             using (Image image = Image.FromFile(fileName))
             using (Image memImage = new Bitmap(image))
