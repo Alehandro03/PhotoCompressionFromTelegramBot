@@ -1,17 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Telegram.Bot;
-using Telegram.Bot.Extensions.Polling;
+﻿using Telegram.Bot;
 using Telegram.Bot.Types;
-using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.Enums;
-using Aspose.Imaging.FileFormats.Jpeg;
 using PhotoCompressionFromTelegramBot.BusinessLayer;
-using System.Drawing.Imaging;
 using System.Drawing;
 
 namespace PhotoCompressionFromTelegramBot
@@ -19,7 +10,7 @@ namespace PhotoCompressionFromTelegramBot
     public class TelegramHandler
     {
         const string saveDataDir = @"C:\Users\azaro\Desktop\photo.png";
-        const string outDataDir = @"C:\Users\azaro\Desktop\photo_out.png";
+        const string outDataDir =  @"C:\Users\azaro\Desktop\photo_out.png";
         //Поменять на системные для сервака
         public ITelegramBotClient Bot { get; set; }
         public TelegramHandler(string token)
@@ -45,7 +36,7 @@ namespace PhotoCompressionFromTelegramBot
                     double firstSize = Convert.ToDouble(message.Photo.Last().FileSize);
                     double secondSize;
 
-                    DownloadFile(saveDataDir, botClient, message.Photo.Last().FileId);
+                    await DownloadFile(saveDataDir, botClient, message.Photo.Last().FileId);
 
                     Image image = Compressor.compressImage(saveDataDir, 0);
                     image.Save(outDataDir);
@@ -62,7 +53,7 @@ namespace PhotoCompressionFromTelegramBot
 
                     double secondSize;
 
-                    DownloadFile(saveDataDir, botClient, message.Document.FileId);
+                    await DownloadFile(saveDataDir, botClient, message.Document.FileId);
 
                     Image image = Compressor.compressImage(saveDataDir, 70);
                     image.Save(outDataDir);
