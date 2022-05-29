@@ -8,11 +8,16 @@ namespace PhotoCompressionFromTelegramBot
     {
         readonly string token;
         readonly TelegramHandler handler;
+        const string downloadPathVariableName = "DOWNLOAD_PATH";
+        const string downloadResizePathVariableName = "DOWNLOAD_RESIZE_PATH";
 
         public TelegramBotStarter()
         {
             token = Environment.GetEnvironmentVariable("TG_TOKEN");
-            handler = new TelegramHandler(token);
+            handler = new TelegramHandler(
+                token,
+                Environment.GetEnvironmentVariable(downloadPathVariableName),
+                Environment.GetEnvironmentVariable(downloadResizePathVariableName));
         }
 
         public void StartBot()

@@ -9,62 +9,76 @@ namespace PhotoCompressionFromTelegramBot
 {
     public class TelegramHandler
     {
-        const string saveDataDir = @"C:\Users\azaro\Desktop\photo.png";
-        const string outDataDir =  @"C:\Users\azaro\Desktop\photo_out.png";
-        //Поменять на системные для сервака
+        readonly string saveDataDir;
+        readonly string outDataDir;
+        
         public ITelegramBotClient Bot { get; set; }
-        public TelegramHandler(string token)
+        public TelegramHandler(string token, string savePath, string saveOutPath)
         {
             Bot = new TelegramBotClient(token);
+            saveDataDir = savePath;
+            outDataDir = saveOutPath;
         }
 
-        public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+        public async Task HandleUpdateAsync(ITelegramBotClient botClient,
+            Update update,
+            CancellationToken cancellationToken)
         {
             Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(update));
             if (update.Type == UpdateType.Message)
             {
                 var message = update.Message;
-                if (message.Text != null && message.Text.ToLower() == "/start")
+                if (message!.Text != null && message.Text.ToLower() == "/start")
                 {
-                    await botClient.SendTextMessageAsync(message.Chat, "Добро пожаловать на борт, добрый путник!");
-                    await botClient.SendTextMessageAsync(message.Chat, "Отправь мне фото и я заставлю его похудеть!");
+                    await botClient.SendTextMessageAsync(message.Chat!, "Добро пожаловать на борт, добрый путник!");
+                    await botClient.SendTextMessageAsync(message.Chat!, "Отправь мне фото и я заставлю его похудеть!");
+                    return;
+                }
+                if ((message.Photo is not null && message.Photo.Last().FileSize > 20971520) ||
+                    (message.Document is not null && message.Document.FileSize > 20971520))
+                {
+                    await botClient.SendTextMessageAsync(message.Chat!, "Файл слишком большой");
                     return;
                 }
                 if (message.Photo is not null)
                 {
-                    await botClient.SendTextMessageAsync(message.Chat, "Сжимаю изображение");
+                    await botClient.SendTextMessageAsync(message.Chat!, "Сжимаю изображение");
                     double firstSize = Convert.ToDouble(message.Photo.Last().FileSize);
-                    double secondSize;
 
-                    await DownloadFile(saveDataDir, botClient, message.Photo.Last().FileId);
+                    string savePath = saveDataDir + message.MessageId;
+                    await DownloadFile(savePath, botClient, message.Photo.Last().FileId);
 
-                    Image image = Compressor.compressImage(saveDataDir, 0);
-                    image.Save(outDataDir);
+                    Image image = Compressor.compressImage(savePath, 0);
+                    string outSavePath = outDataDir + message.MessageId;
+                    image.Save(outSavePath);
 
-                    SendFile(firstSize, message.Chat.Id);
+                    await SendFile(firstSize, message.Chat.Id, outSavePath);
+                    await CleanUp(savePath, outSavePath);
                     return;
                 }
                 if (message.Document is not null)
                 {
-                    await botClient.SendTextMessageAsync(message.Chat, "Сжимаю изображение");
+                    await botClient.SendTextMessageAsync(message.Chat!, "Сжимаю изображение");
 
                     double firstSize = Convert.ToDouble(message.Document.FileSize);
                     Console.WriteLine(firstSize);
 
-                    double secondSize;
+                    string savePath = saveDataDir + message.MessageId + ".png";
+                    await DownloadFile(savePath, botClient, message.Document.FileId);
 
-                    await DownloadFile(saveDataDir, botClient, message.Document.FileId);
+                    Image image = Compressor.compressImage(savePath, 70);
+                    string outSavePath = outDataDir + message.MessageId + ".png";
+                    image.Save(outSavePath);
 
-                    Image image = Compressor.compressImage(saveDataDir, 70);
-                    image.Save(outDataDir);
-
-                    SendFile(firstSize, message.Chat.Id);
+                    await SendFile(firstSize, message.Chat.Id, outSavePath);
+                    await CleanUp(savePath, outSavePath);
                     return;
                 }
             }
         }
 
-        public async Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
+        public async Task HandleErrorAsync(ITelegramBotClient botClient,
+            Exception exception, CancellationToken cancellationToken)
         {
             Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(exception));
         }
@@ -77,15 +91,15 @@ namespace PhotoCompressionFromTelegramBot
             using (FileStream fileStream = System.IO.File.OpenWrite(dataDir))
             {
                 await botClient.DownloadFileAsync(
-                    filePath: filePath,
+                    filePath: filePath!,
                     destination: fileStream);
             }
         }
 
-        private async Task SendFile(double firstSize, long chatId)
+        private async Task SendFile(double firstSize, long chatId, string path)
         {
             double secondSize;
-            using (var file = new FileStream(outDataDir,
+            using (var file = new FileStream(path,
                    FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 secondSize = file.Length;
@@ -98,6 +112,12 @@ namespace PhotoCompressionFromTelegramBot
                     photo: new InputOnlineFile(file),
                     caption: size);
             }
+        }
+
+        private async Task CleanUp(string savePath, string outPath)
+        {
+            System.IO.File.Delete(savePath);
+            System.IO.File.Delete(outPath);
         }
     }
 }
